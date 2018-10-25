@@ -1,29 +1,67 @@
 import React, { Component } from 'react';
 import AuxContainer from './AuxContainer/AuxContainer'
 import Row from './Row/Row'
-
+import getAllIndexes from './util/utils.js'
 import data from './data/dashboard.json';
 import './App.css';
 
 class App extends Component {
-  state={
-    sorted: "",
-    down: true,
-    data: []
+
+  constructor(props) {
+    super(props)
+    this.state = {
+      sorted: "",
+      down: true,
+      data: []
+    }
   }
+  
 
   componentDidMount = () => {
     data.sort((a,b) => (a["owner"] > b["owner"]) ? 1 : ((b["owner"] > a["owner"]) ? -1 : 0))
+
+    // Find out first if there are any employees working for multiple product lines
+    let list = []
+    let curr_row_owner = ""
+    const x = data.map((row, index) => {
+      if(curr_row_owner === row.owner) {
+        let idx = list.findIndex( element => element.owner === row.owner)
+        if(idx === -1) {
+          list.push({owner: row.owner, count: 2})
+        } else { 
+          list[idx].count = list[idx].count + 1
+        }
+      }
+      curr_row_owner = row.owner
+      return row
+    })
+    
+
     const newData = data.map(row => {
       if (row.c_last_31_days === 0) {
         row.kb_percent = 0
       } else {
         row.kb_percent = Math.floor(0.5 + row.kb_linked / row.c_last_31_days * 100)
       }
-      return row
-    })
+
+      // In case there is more than one row of data for given employee, make a list of it
+      if(list.findIndex(element => element.owner === row.owner) !== -1) {
+        let new_row = []
+        let indexes = getAllIndexes(data, row.owner)
+        indexes.forEach((i) => {
+          new_row.push(data[i])
+          delete data[i]
+        })
+        list.splice(list.findIndex(element => element.owner === row.owner), 1)
+        return new_row
+      } else {
+        return row
+        }
+      })
+      console.log(newData)
     this.setState({data: newData})
   }
+
 
   sort = (sorted, column) => {
     if (sorted === column) {
@@ -46,9 +84,15 @@ class App extends Component {
 
   total = column => {
     let total = 0
+    /*
     for ( let i = 0, _len = this.state.data.length; i < _len; i++ ) {
-      total += this.state.data[i][column]
+      if(Array.isArray(this.state.data[i])) {
+          console.log(this.state.data[i])
+      } else { 
+        total += this.state.data[i][column]
+      }
     }
+    */
     return total
   }
 
